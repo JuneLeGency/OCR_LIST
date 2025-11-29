@@ -8,10 +8,34 @@ https://stable-learn.com/zh/hunyuan-ocr-introduction/
 
 https://rapidai.github.io/RapidOCRDocs/main/
 
-Qwen3VL
+## DeepseekOCR
 
-PaddleOCR
+[DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR)
 
-HunyuanOCR
+## Qwen3VL
 
-https://github.com/datalab-to/chandra
+阿里
+
+[Qwen3-VL](https://github.com/QwenLM/Qwen3-VL)
+
+[Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct)
+
+## PaddleOCR
+百度
+
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)
+
+[Baidu](https://aistudio.baidu.com/paddleocr)
+
+## HunyuanOCR
+
+腾讯
+
+[HunyuanOCR](https://github.com/Tencent-Hunyuan/HunyuanOCR)
+
+## chandra
+
+[chandra](https://github.com/datalab-to/chandra)
+
+## RapidOCR
+[RapidOCR](https://github.com/RapidAI/RapidOCR)
