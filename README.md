@@ -6,6 +6,8 @@ https://stable-learn.com/zh/hunyuan-ocr-introduction/
 
 https://rapidai.github.io/RapidOCRDocs/main/
 
+[olmocr](https://github.com/allenai/olmocr)
+
 ## DeepseekOCR
 
 [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR)
@@ -34,6 +36,7 @@ https://rapidai.github.io/RapidOCRDocs/main/
 ## chandra
 
 [chandra](https://github.com/datalab-to/chandra)
+[chandra hg](https://huggingface.co/datalab-to/chandra)
 
 ## RapidOCR
 [RapidOCR](https://github.com/RapidAI/RapidOCR)
