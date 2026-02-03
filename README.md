@@ -8,6 +8,9 @@ https://rapidai.github.io/RapidOCRDocs/main/
 
 [olmocr](https://github.com/allenai/olmocr)
 
+## GLM OCR
+[GLM OCR](https://github.com/zai-org/GLM-OCR)
+
 ## DeepseekOCR
 
 [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR)
