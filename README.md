@@ -12,8 +12,8 @@ https://rapidai.github.io/RapidOCRDocs/main/
 [GLM OCR](https://github.com/zai-org/GLM-OCR)
 
 ## DeepseekOCR
-
 [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR)
+[DeepSeek-OCR-2](https://github.com/deepseek-ai/DeepSeek-OCR-2?tab=readme-ov-file)
 
 ## Qwen3VL
 
