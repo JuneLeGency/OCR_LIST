@@ -44,6 +44,9 @@ rapidocr = [
 chandra = [
     "chandra-ocr>=0.1.0",
 ]
+tesseract = [
+    "pytesseract>=0.3.10",
+]
 # Flash attention for better performance (requires matching torch version)
 flash = [
     "flash-attn",

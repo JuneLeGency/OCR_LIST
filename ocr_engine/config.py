@@ -54,6 +54,17 @@ SUPPORTED_MODELS = {
         torch_dtype="bfloat16",
         max_new_tokens=8192,
     ),
+    "tesseract": ModelConfig(
+        name="Tesseract",
+        model_id="tesseract",
+    ),
+    "dots-ocr": ModelConfig(
+        name="dots.ocr",
+        model_id="rednote-hilab/dots.ocr",
+        trust_remote_code=True,
+        torch_dtype="bfloat16",
+        max_new_tokens=24000,
+    ),
 }
 
 # vLLM server configurations (examples)

@@ -45,6 +45,8 @@ from .deepseek_ocr import DeepSeekOCRBackend
 from .vllm_client import VLLMBackend
 from .rapidocr import RapidOCRBackend
 from .chandra_ocr import ChandraOCRBackend
+from .tesseract_ocr import TesseractOCRBackend
+from .dots_ocr import DotsOCRBackend
 
 __all__ = [
     "register_backend",
@@ -58,4 +60,6 @@ __all__ = [
     "VLLMBackend",
     "RapidOCRBackend",
     "ChandraOCRBackend",
+    "TesseractOCRBackend",
+    "DotsOCRBackend",
 ]
