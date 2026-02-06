@@ -2,7 +2,14 @@
 
 https://cloud.baidu.com/article/3878485
 
+https://stable-learn.com/zh/glm-ocr-introduction/
+
 https://stable-learn.com/zh/hunyuan-ocr-introduction/
+
+https://stable-learn.com/zh/vllm-dots-ocr-support/
+
+https://stable-learn.com/zh/mineru-tutorial/
+
 
 https://rapidai.github.io/RapidOCRDocs/main/
 
