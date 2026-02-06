@@ -47,6 +47,13 @@ SUPPORTED_MODELS = {
         name="RapidOCR",
         model_id="rapidocr",
     ),
+    "chandra-ocr": ModelConfig(
+        name="Chandra-OCR",
+        model_id="datalab-to/chandra",
+        trust_remote_code=False,
+        torch_dtype="bfloat16",
+        max_new_tokens=8192,
+    ),
 }
 
 # vLLM server configurations (examples)

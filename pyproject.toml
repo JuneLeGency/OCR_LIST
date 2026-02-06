@@ -26,6 +26,10 @@ dependencies = [
 
     # vLLM server mode (OpenAI-compatible API)
     "openai>=1.0.0",
+
+    # HTTP server mode (OpenAI-compatible self-hosted API)
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +40,9 @@ dev = [
 rapidocr = [
     "rapidocr>=3.4.2",
     "onnxruntime>=1.23.2",
+]
+chandra = [
+    "chandra-ocr>=0.1.0",
 ]
 # Flash attention for better performance (requires matching torch version)
 flash = [

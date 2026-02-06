@@ -44,6 +44,7 @@ from .hunyuan_ocr import HunyuanOCRBackend
 from .deepseek_ocr import DeepSeekOCRBackend
 from .vllm_client import VLLMBackend
 from .rapidocr import RapidOCRBackend
+from .chandra_ocr import ChandraOCRBackend
 
 __all__ = [
     "register_backend",
@@ -56,4 +57,5 @@ __all__ = [
     "DeepSeekOCRBackend",
     "VLLMBackend",
     "RapidOCRBackend",
+    "ChandraOCRBackend",
 ]
