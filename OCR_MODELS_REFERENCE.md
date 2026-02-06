@@ -11,9 +11,42 @@
 | Qwen2.5-VL | 阿里云 Qwen | 3B/7B/32B/72B | 2025.01 | OCR能力强，多语言，agentic |
 | Qwen3-VL | 阿里云 Qwen | 2B/8B/32B | 2025.10 | 支持32种语言OCR，支持模糊低光 |
 | GLM-4V-9B | 智谱AI/THUDM | 9B | 2024 | 中英双语，高分辨率1120x1120 |
-| GLM-OCR | 智谱AI | ~2B | 2025 | 专门OCR优化 |
-| HunyuanOCR | 腾讯 | 1B | 2025.11 | 轻量SOTA，端到端OCR专家模型 |
-| DeepSeek-OCR-2 | DeepSeek | 3B | 2026.01 | Visual Causal Flow，强视觉推理 |
+| GLM-OCR | 智谱AI | 1.3B | 2025 | 专门OCR优化，发票场景精度极高 |
+| HunyuanOCR | 腾讯 | 1.0B | 2025.11 | 轻量SOTA，端到端OCR专家模型 |
+| DeepSeek-OCR-2 | DeepSeek | 3.4B | 2026.01 | Visual Causal Flow，强视觉推理 |
+| Chandra-OCR | Datalab | 8.9B | 2025 | 文档布局解析+OCR，Markdown输出 |
+| dots.ocr | RedNote (小红书) | 3.1B | 2025 | 多语言文档布局解析VLM |
+| RapidOCR | PaddleOCR | — | — | 传统OCR，CPU推理，ONNX加速 |
+| Tesseract | Google | — | — | 传统OCR，CPU推理，开源经典 |
+
+### 技术参数对比
+
+| 模型 | 模型大小 | 精度 | 显存(加载/峰值) | 推理速度 | 推理方式 |
+|------|---------|------|-----------------|---------|---------|
+| rapidocr | 16 MB | FP32 | — (CPU) | ~1.3s/img | ONNX Runtime |
+| tesseract | 19 MB | — | — (CPU) | ~0.7s/img | C++ Engine |
+| glm-ocr | 2.5 GB | BF16 | 2.0 / 3.9 GB | ~2.8s/img | transformers |
+| qwen3-vl | 4.0 GB | BF16 | 4.1 / 6.2 GB | ~4.9s/img | transformers |
+| hunyuan-ocr | 1.9 GB | BF16 | 2.9 / >32 GB* | ~67s/img | transformers (eager attn) |
+| deepseek-ocr | 6.4 GB | BF16 | 6.5 / 8.5 GB | ~2.8s/img | transformers |
+| chandra-ocr | 16.5 GB | BF16 | 16.6 / 18.4 GB | ~23s/img | chandra SDK |
+| dots-ocr | 5.7 GB | BF16 | 22.5 / >32 GB* | OOM | transformers |
+
+\* eager attention 导致高分辨率图片显存暴增；32 GB 显存不足以处理部分输入。
+
+> 测试环境: RTX 5090 (32 GB), Python 3.12, torch 2.9, transformers 5.x
+
+### 基准评测（47 张发票，Majority-Vote 共识）
+
+| 模型 | 准确率 | 匹配 | 不匹配 | 错误 |
+|------|--------|------|--------|------|
+| glm-ocr | **100.0%** | 47/47 | 0 | 0 |
+| qwen3-vl | **100.0%** | 47/47 | 0 | 0 |
+| rapidocr | 97.7% | 43/47 | 1 | 3 |
+| hunyuan-ocr | 88.9% | 16/47 | 2 | 29 |
+| deepseek-ocr | 79.2% | 19/47 | 5 | 23 |
+
+> 评测方式：所有模型对同一张图提取金额，取多数一致的结果作为标准答案。accuracy = match / (match + mismatch)。
 
 ---
 
@@ -236,14 +269,133 @@ prompt = "<image>\n<|grounding|>Convert the document to markdown"
 
 ---
 
+## 5. Chandra-OCR
+
+**特点：**
+- 8.9B 参数文档理解模型
+- 结合 OCR + 文档布局解析，输出结构化 Markdown
+- 基于 HuggingFace 模型，支持 `hf` / `vllm` 两种推理方式
+- 安装：`uv sync --extra chandra`（独立 pip 包 `chandra-ocr`）
+
+**HuggingFace：**
+- [datalab-to/chandra](https://huggingface.co/datalab-to/chandra)
+
+**GitHub：** [datalab-to/chandra](https://github.com/datalab-to/chandra)
+
+**调用方式：**
+```python
+from chandra.model import InferenceManager
+from chandra.model.schema import BatchInputItem
+from PIL import Image
+
+manager = InferenceManager(method="hf")
+image = Image.open("document.jpg")
+batch = [BatchInputItem(image=image, prompt_type="ocr_layout")]
+results = manager.generate(batch)
+print(results[0].markdown)
+```
+
+---
+
+## 6. Tesseract
+
+**特点：**
+- Google 开源经典 OCR 引擎（Tesseract 5）
+- 纯 CPU 推理，无需 GPU
+- 支持中英文（需安装语言包 `tesseract-ocr-chi-sim`）
+- 速度快（~0.7s/img），适合轻量场景
+- 安装：`uv sync --extra tesseract` + 系统包 `apt install tesseract-ocr tesseract-ocr-chi-sim`
+
+**GitHub：** [tesseract-ocr/tesseract](https://github.com/tesseract-ocr/tesseract)
+
+**调用方式：**
+```python
+import pytesseract
+from PIL import Image
+
+image = Image.open("document.jpg")
+text = pytesseract.image_to_string(image, lang="chi_sim+eng")
+print(text)
+```
+
+---
+
+## 7. dots.ocr
+
+**特点：**
+- 3.1B 参数多语言文档布局解析 VLM（小红书 RedNote 出品）
+- 输出 JSON 格式的布局信息（bbox + category + text）
+- 支持 Caption, Formula (LaTeX), Table (HTML), Text (Markdown) 等布局类型
+- 注意：dots.ocr PyPI 包锁定 `torch==2.7.0`，本项目直接用 `transformers.AutoModelForCausalLM` 加载，无额外依赖
+- 已知问题：在 32 GB 显存下 OOM（模型加载 22.5 GB + 推理需要额外 >10 GB）
+
+**HuggingFace：**
+- [rednote-hilab/dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr)
+
+**GitHub：** [rednote-hilab/dots.ocr1.5](https://github.com/rednote-hilab/dots.ocr1.5)
+
+**调用方式：**
+```python
+from transformers import AutoModelForCausalLM, AutoProcessor
+from qwen_vl_utils import process_vision_info
+import torch
+
+model_path = "rednote-hilab/dots.ocr"
+processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(
+    model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+)
+
+messages = [{"role": "user", "content": [
+    {"type": "image", "image": "document.jpg"},
+    {"type": "text", "text": "Please output the layout information..."},
+]}]
+
+text_input = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+image_inputs, video_inputs = process_vision_info(messages)
+inputs = processor(text=[text_input], images=image_inputs, videos=video_inputs,
+                   padding=True, return_tensors="pt").to(model.device)
+
+with torch.no_grad():
+    generated_ids = model.generate(**inputs, max_new_tokens=24000)
+# Output is JSON with layout elements, each containing bbox, category, text
+```
+
+---
+
+## 8. RapidOCR
+
+**特点：**
+- 基于 PaddleOCR v4 的 ONNX 推理方案
+- 纯 CPU 推理，轻量高效（模型仅 16 MB）
+- 支持中英文混合识别
+- 安装：`uv sync --extra rapidocr`
+
+**GitHub：** [RapidAI/RapidOCR](https://github.com/RapidAI/RapidOCR)
+
+**调用方式：**
+```python
+from rapidocr import RapidOCR
+
+engine = RapidOCR()
+result = engine("document.jpg")
+# result: list of (bbox, text, confidence)
+```
+
+---
+
 ## 依赖库对比
 
-| 模型 | 加载库 | Processor | Model Class |
-|------|--------|-----------|-------------|
-| Qwen3-VL | transformers | AutoProcessor | Qwen3VLForConditionalGeneration |
-| GLM-OCR | modelscope | AutoProcessor | AutoModelForImageTextToText |
-| HunyuanOCR | transformers | AutoProcessor | HunYuanVLForConditionalGeneration |
-| DeepSeek-OCR-2 | transformers | AutoTokenizer | AutoModel (trust_remote_code) |
+| 模型 | 加载库 | Processor | Model Class | trust_remote_code |
+|------|--------|-----------|-------------|-------------------|
+| Qwen3-VL | transformers | AutoProcessor | Qwen3VLForConditionalGeneration | No |
+| GLM-OCR | transformers | AutoProcessor | AutoModelForImageTextToText | No |
+| HunyuanOCR | transformers | AutoProcessor | HunYuanVLForConditionalGeneration | Yes |
+| DeepSeek-OCR-2 | transformers | AutoTokenizer | AutoModel | Yes |
+| Chandra-OCR | chandra SDK | — | InferenceManager | — |
+| dots.ocr | transformers | AutoProcessor | AutoModelForCausalLM | Yes |
+| RapidOCR | rapidocr | — | RapidOCR | — |
+| Tesseract | pytesseract | — | — | — |
 
 ---
 
@@ -270,19 +422,23 @@ messages = [
 
 ---
 
-## 重构建议
+## 统一接口（已实现）
 
-基于以上分析，可以抽象出统一的接口：
-
-1. **统一的 Model Loader**: 根据模型类型自动选择正确的加载方式
-2. **统一的消息格式转换**: 将通用格式转换为各模型特定格式
-3. **统一的推理接口**: `process_image(image_path, prompt) -> str`
-4. **统一的后处理**: 各模型输出的标准化
+所有模型已通过 `ocr_engine` 统一封装：
 
 ```python
-# 目标接口示例
 from ocr_engine import OCREngine
 
-engine = OCREngine(model="hunyuan")  # 或 "qwen", "glm", "deepseek"
-result = engine.process("image.jpg", prompt="识别文字")
+# 任意模型使用相同接口
+engine = OCREngine("glm-ocr")  # 或 qwen3-vl, rapidocr, tesseract, ...
+engine.load()
+result = engine.ocr("image.jpg")
+print(result.text)
+engine.unload()
+
+# Context manager 自动加载/卸载
+with OCREngine("rapidocr") as engine:
+    result = engine.ocr("invoice.jpg")
 ```
+
+支持的模型名：`qwen3-vl`, `glm-ocr`, `hunyuan-ocr`, `deepseek-ocr`, `chandra-ocr`, `dots-ocr`, `rapidocr`, `tesseract`
