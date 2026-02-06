@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from ocr_engine import OCREngine
+from ocr_engine.engine import OCREngine
 from ocr_engine.config import SUPPORTED_MODELS
 
 
