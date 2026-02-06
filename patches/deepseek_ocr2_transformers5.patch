@@ -1,0 +1,312 @@
+--- a/modeling_deepseekv2.py	d9362d80 (https://modelscope.cn/models/deepseek-ai/DeepSeek-OCR-2)
++++ b/modeling_deepseekv2.py	patched for transformers 5.x
+@@ -34,11 +34,150 @@
+ from transformers.activations import ACT2FN
+ from transformers.cache_utils import Cache, DynamicCache
+ from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
+-from transformers.models.llama.modeling_llama import (
+-    LlamaAttention,
+-)
+-# Compatibility: LlamaFlashAttention2 removed in transformers 5.x
+-# Create a stub that uses LlamaAttention instead
++
++
++def _llama_apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
++    """Standard (non-interleaved) rotary position embedding, matching transformers 4.46.3."""
++    cos = cos[position_ids].unsqueeze(unsqueeze_dim)
++    sin = sin[position_ids].unsqueeze(unsqueeze_dim)
++    q1 = q[..., : q.shape[-1] // 2]
++    q2 = q[..., q.shape[-1] // 2 :]
++    q_rotated = torch.cat((-q2, q1), dim=-1)
++    k1 = k[..., : k.shape[-1] // 2]
++    k2 = k[..., k.shape[-1] // 2 :]
++    k_rotated = torch.cat((-k2, k1), dim=-1)
++    q_embed = (q * cos) + (q_rotated * sin)
++    k_embed = (k * cos) + (k_rotated * sin)
++    return q_embed, k_embed
++
++
++def _repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
++    if n_rep == 1:
++        return hidden_states
++    batch, num_key_value_heads, slen, head_dim = hidden_states.shape
++    hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
++    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
++
++
++class LlamaAttention(nn.Module):
++    """Standalone LlamaAttention matching transformers 4.46.3 behavior.
++
++    This avoids any 5.x LlamaAttention dependency while being compatible
++    with the DeepseekV2DecoderLayer calling convention.
++    """
++
++    def __init__(self, config, layer_idx=None):
++        super().__init__()
++        self.config = config
++        self.layer_idx = layer_idx
++        self.hidden_size = config.hidden_size
++        self.num_heads = config.num_attention_heads
++        self.head_dim = self.hidden_size // self.num_heads
++        self.num_key_value_heads = config.num_key_value_heads
++        self.num_key_value_groups = self.num_heads // self.num_key_value_heads
++        self.attention_dropout = config.attention_dropout
++
++        self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
++        self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
++        self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
++        self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=config.attention_bias)
++
++        self._init_rope()
++
++    def _init_rope(self):
++        rope_scaling = self.config.rope_scaling
++        # transformers 5.x auto-sets rope_scaling to {'rope_type': 'default', ...}
++        scaling_type = None
++        if rope_scaling is not None:
++            scaling_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
++            if scaling_type == "default":
++                scaling_type = None
++
++        if scaling_type is None:
++            self.rotary_emb = DeepseekV2RotaryEmbedding(
++                self.head_dim,
++                max_position_embeddings=self.config.max_position_embeddings,
++                base=self.config.rope_theta,
++            )
++        elif scaling_type == "yarn":
++            rope_kwargs = {
++                key: rope_scaling[key]
++                for key in [
++                    "original_max_position_embeddings",
++                    "beta_fast",
++                    "beta_slow",
++                    "mscale",
++                    "mscale_all_dim",
++                ]
++                if key in rope_scaling
++            }
++            self.rotary_emb = DeepseekV2YarnRotaryEmbedding(
++                self.head_dim,
++                max_position_embeddings=self.config.max_position_embeddings,
++                scaling_factor=rope_scaling["factor"],
++                base=self.config.rope_theta,
++                **rope_kwargs,
++            )
++        else:
++            self.rotary_emb = DeepseekV2RotaryEmbedding(
++                self.head_dim,
++                max_position_embeddings=self.config.max_position_embeddings,
++                base=self.config.rope_theta,
++            )
++
++    def forward(
++        self,
++        hidden_states: torch.Tensor,
++        attention_mask: Optional[torch.Tensor] = None,
++        position_ids: Optional[torch.LongTensor] = None,
++        past_key_value: Optional[Cache] = None,
++        output_attentions: bool = False,
++        use_cache: bool = False,
++        **kwargs,
++    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
++        bsz, q_len, _ = hidden_states.size()
++
++        query_states = self.q_proj(hidden_states)
++        key_states = self.k_proj(hidden_states)
++        value_states = self.v_proj(hidden_states)
++
++        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
++        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
++        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
++
++        kv_seq_len = key_states.shape[-2]
++        if past_key_value is not None:
++            kv_seq_len += past_key_value.get_seq_length(self.layer_idx)
++        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
++        query_states, key_states = _llama_apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
++
++        if past_key_value is not None:
++            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": kwargs.get("cache_position")}
++            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
++
++        key_states = _repeat_kv(key_states, self.num_key_value_groups)
++        value_states = _repeat_kv(value_states, self.num_key_value_groups)
++
++        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
++
++        if attention_mask is not None:
++            causal_mask = attention_mask[:, :, :, :key_states.shape[-2]]
++            attn_weights = attn_weights + causal_mask
++
++        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
++        attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
++        attn_output = torch.matmul(attn_weights, value_states)
++
++        attn_output = attn_output.transpose(1, 2).contiguous()
++        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
++        attn_output = self.o_proj(attn_output)
++
++        if not output_attentions:
++            attn_weights = None
++
++        return attn_output, attn_weights, past_key_value
++
++
+ LlamaFlashAttention2 = LlamaAttention
+ from transformers.modeling_outputs import (
+     BaseModelOutputWithPast,
+@@ -143,11 +282,17 @@
+ 
+     def _set_cos_sin_cache(self, seq_len, device, dtype):
+         self.max_seq_len_cached = seq_len
++        # Always recompute inv_freq here to handle meta-device model loading
++        # (non-persistent buffers become uninitialized garbage after to_empty)
++        inv_freq = 1.0 / (
++            self.base ** (torch.arange(0, self.dim, 2, dtype=torch.int64, device=device).float() / self.dim)
++        )
++        self.inv_freq = inv_freq
+         t = torch.arange(
+-            self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype
++            self.max_seq_len_cached, device=device, dtype=inv_freq.dtype
+         )
+ 
+-        freqs = torch.outer(t, self.inv_freq.to(t.device))
++        freqs = torch.outer(t, inv_freq)
+         # Different from paper, but it uses a different permutation in order to obtain the same calculation
+         emb = torch.cat((freqs, freqs), dim=-1)
+         self.register_buffer("cos_cached", emb.cos().to(dtype), persistent=False)
+@@ -789,29 +934,31 @@
+         self._init_rope()
+ 
+         self.softmax_scale = self.q_head_dim ** (-0.5)
+-        if self.config.rope_scaling is not None:
+-            mscale_all_dim = self.config.rope_scaling.get("mscale_all_dim", 0)
+-            scaling_factor = self.config.rope_scaling["factor"]
+-            if mscale_all_dim:
++        rope_scaling = self.config.rope_scaling
++        if rope_scaling is not None:
++            mscale_all_dim = rope_scaling.get("mscale_all_dim", 0)
++            scaling_factor = rope_scaling.get("factor")
++            if mscale_all_dim and scaling_factor:
+                 mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+                 self.softmax_scale = self.softmax_scale * mscale * mscale
+ 
+     def _init_rope(self):
+-        if self.config.rope_scaling is None:
++        rope_scaling = self.config.rope_scaling
++        # transformers 5.x auto-sets rope_scaling to {'rope_type': 'default', ...}
++        scaling_type = None
++        if rope_scaling is not None:
++            scaling_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
++            if scaling_type == "default":
++                scaling_type = None
++
++        if scaling_type is None:
+             self.rotary_emb = DeepseekV2RotaryEmbedding(
+                 self.qk_rope_head_dim,
+                 max_position_embeddings=self.max_position_embeddings,
+                 base=self.rope_theta,
+             )
+-            # self.rotary_emb = DeepseekV2LinearScalingRotaryEmbedding(
+-            #     self.qk_rope_head_dim,
+-            #     max_position_embeddings=self.max_position_embeddings,
+-            #     scaling_factor=scaling_factor,
+-            #     base=self.rope_theta,
+-            # )
+         else:
+-            scaling_type = self.config.rope_scaling["type"]
+-            scaling_factor = self.config.rope_scaling["factor"]
++            scaling_factor = rope_scaling["factor"]
+             if scaling_type == "linear":
+                 self.rotary_emb = DeepseekV2LinearScalingRotaryEmbedding(
+                     self.qk_rope_head_dim,
+@@ -828,7 +975,7 @@
+                 )
+             elif scaling_type == "yarn":
+                 kwargs = {
+-                    key: self.config.rope_scaling[key]
++                    key: rope_scaling[key]
+                     for key in [
+                         "original_max_position_embeddings",
+                         "beta_fast",
+@@ -836,7 +983,7 @@
+                         "mscale",
+                         "mscale_all_dim",
+                     ]
+-                    if key in self.config.rope_scaling
++                    if key in rope_scaling
+                 }
+                 self.rotary_emb = DeepseekV2YarnRotaryEmbedding(
+                     self.qk_rope_head_dim,
+@@ -897,7 +1044,7 @@
+                     "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
+                     "with a layer index."
+                 )
+-            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
++            kv_seq_len += past_key_value.get_seq_length(self.layer_idx)
+ 
+         cos, sin = self.rotary_emb(q_pe, seq_len=kv_seq_len)
+         q_pe, k_pe = apply_rotary_pos_emb(q_pe, k_pe, cos, sin, position_ids)
+@@ -1026,7 +1173,7 @@
+ 
+         kv_seq_len = value_states.shape[-2]
+         if past_key_value is not None:
+-            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
++            kv_seq_len += past_key_value.get_seq_length(self.layer_idx)
+ 
+         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+         q_pe, k_pe = apply_rotary_pos_emb(q_pe, k_pe, cos, sin, position_ids)
+@@ -1374,11 +1521,11 @@
+     def _init_weights(self, module):
+         std = self.config.initializer_range
+         if isinstance(module, nn.Linear):
+-            module.weight.data.normal_(mean=0.0, std=std)
++            nn.init.normal_(module.weight, mean=0.0, std=std)
+             if module.bias is not None:
+-                module.bias.data.zero_()
++                nn.init.zeros_(module.bias)
+         elif isinstance(module, nn.Embedding):
+-            module.weight.data.normal_(mean=0.0, std=std)
++            nn.init.normal_(module.weight, mean=0.0, std=std)
+             if module.padding_idx is not None:
+                 module.weight.data[module.padding_idx].zero_()
+ 
+@@ -1547,7 +1694,11 @@
+             use_legacy_cache = not isinstance(past_key_values, Cache)
+             if use_legacy_cache:
+                 past_key_values = DynamicCache.from_legacy_cache(past_key_values)
+-            past_key_values_length = past_key_values.get_usable_length(seq_length)
++            # Compatibility: use cache_position if available (transformers 5.x)
++            if cache_position is not None and len(cache_position) > 0:
++                past_key_values_length = cache_position[0].item()
++            else:
++                past_key_values_length = past_key_values.get_seq_length()
+ 
+         if position_ids is None:
+             device = input_ids.device if input_ids is not None else inputs_embeds.device
+@@ -1571,6 +1722,13 @@
+             )
+         else:
+             # 4d mask is passed through the layers
++            # Compatibility: transformers 5.x may pass attention_mask with full sequence length
++            if attention_mask is not None and attention_mask.shape[-1] != seq_length + past_key_values_length:
++                # attention_mask already includes past tokens, adjust past_key_values_length
++                expected_kv_length = attention_mask.shape[-1]
++                adjusted_past_length = expected_kv_length - seq_length
++                if adjusted_past_length >= 0:
++                    past_key_values_length = adjusted_past_length
+             attention_mask = _prepare_4d_causal_attention_mask(
+                 attention_mask,
+                 (batch_size, seq_length),
+@@ -1807,8 +1965,10 @@
+             # 3 - Otherwise (past_length >= input_ids.shape[1]), let's assume input_ids only has unprocessed tokens.
+ 
+             # If we are about to go beyond the maximum cache length, we need to crop the input attention mask.
++            # Compatibility: get_max_cache_shape() returns -1 (not None) for unlimited caches
+             if (
+                     max_cache_length is not None
++                    and max_cache_length > 0
+                     and attention_mask is not None
+                     and cache_length + input_ids.shape[1] > max_cache_length
+             ):

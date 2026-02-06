@@ -1,0 +1,7 @@
+{
+  "_instructions": "Add filename as key and the correct invoice amount as value (number). Example: '收费票据 0607575447.jpg': 123.45",
+  "_example": "Remove this after adding your ground truth data",
+  "收费票据 0607575447.jpg": null,
+  "收费票据 0607575461.jpg": null,
+  "收费票据 0607651172.jpg": null
+}

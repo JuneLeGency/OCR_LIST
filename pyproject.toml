@@ -1,0 +1,65 @@
+[project]
+name = "ocr-engine"
+version = "0.2.0"
+description = "Unified OCR Engine for VLM models (Qwen3-VL, GLM-OCR, HunyuanOCR, DeepSeek-OCR)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Core - torch 2.9+ for RTX 50 series (sm_120) + prebuilt flash-attn
+    "torch>=2.9.0",
+    "torchvision>=0.22.0",
+    "transformers>=5.0.0",
+
+    # Model loading
+    "modelscope>=1.0.0",
+    "accelerate>=1.12.0",
+
+    # Vision processing
+    "pillow>=10.0.0",
+    "qwen-vl-utils>=0.0.14",
+
+    # Utils
+    "einops>=0.8.1",
+    "addict>=2.4.0",
+    "matplotlib>=3.0.0",  # Required by DeepSeek-OCR
+    "safetensors>=0.4.0",  # Required for HunyuanOCR weight loading
+
+    # vLLM server mode (OpenAI-compatible API)
+    "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+rapidocr = [
+    "rapidocr>=3.4.2",
+    "onnxruntime>=1.23.2",
+]
+# Flash attention for better performance (requires matching torch version)
+flash = [
+    "flash-attn",
+]
+
+[project.scripts]
+ocr = "ocr_engine.cli:main"
+
+[tool.uv.sources]
+# Transformers with HunyuanVL patch (fixes weight corruption during model loading)
+# Branch: hunyuan-vl-patch
+# Fallback: run `python scripts/patch_transformers.py` if sync fails
+transformers = { git = "https://github.com/JuneLeGency/transformers_hy.git", branch = "hunyuan-vl-patch" }
+# flash-attn prebuilt wheel (Python 3.12, torch 2.9, CUDA 13)
+flash-attn = { path = "/home/legency/.local/share/prebuilt-wheels/flash_attn-2.8.1+cu13torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ocr_engine"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
