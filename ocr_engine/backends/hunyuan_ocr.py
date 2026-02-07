@@ -6,29 +6,9 @@ from typing import Union
 
 import torch
 from PIL import Image
-from transformers import StoppingCriteria, StoppingCriteriaList
 
 from ..base import ModelConfig, OCRBackend, OCRResult, InferenceMode
 from . import register_backend
-
-
-class _EosStoppingCriteria(StoppingCriteria):
-    """Workaround: HunyuanVL's generate() ignores eos_token_id due to a
-    bug in the merged transformers. This criteria manually checks for stop
-    tokens and halts generation."""
-
-    def __init__(self, eos_token_ids: list[int]):
-        self.eos_token_ids = set(eos_token_ids)
-
-    def __call__(self, input_ids, scores, **kwargs):
-        return input_ids[0, -1].item() in self.eos_token_ids
-
-
-# HunyuanOCR stop tokens:
-#   120001 = <｜hy_end▁of▁sentence｜>
-#   120007 = <｜hy_Assistant｜>  (end-of-turn in Hunyuan chat format)
-#   120008 = <｜hy_EOT｜>
-_HUNYUAN_STOP_TOKEN_IDS = [120001, 120007, 120008]
 
 
 @register_backend("hunyuan-ocr")
@@ -39,8 +19,7 @@ class HunyuanOCRBackend(OCRBackend):
     Based on Tencent-Hunyuan/HunyuanOCR.
 
     Requirements:
-    - Uses merged transformers (main + 82a06db patch) for weight loading fix
-    - Requires eager attention (flash_attention_2 incompatible with xdrope)
+    - Uses transformers fork (hunyuan-vl-patch) for weight loading + generation_config fix
     - Two-step processing: apply_chat_template(tokenize=False) then processor()
     """
 
@@ -90,7 +69,6 @@ class HunyuanOCRBackend(OCRBackend):
 
         self.model = HunYuanVLForConditionalGeneration.from_pretrained(
             model_path,
-            attn_implementation=self.config.attn_implementation or "eager",
             torch_dtype=torch.bfloat16,
             device_map=self.config.device_map,
         )
@@ -150,18 +128,11 @@ class HunyuanOCRBackend(OCRBackend):
             device = next(self.model.parameters()).device
             inputs = inputs.to(device)
 
-            # HunyuanVL's generate() has a bug where eos_token_id is ignored,
-            # causing infinite generation and OOM.  Use custom StoppingCriteria.
-            stop = StoppingCriteriaList([
-                _EosStoppingCriteria(_HUNYUAN_STOP_TOKEN_IDS),
-            ])
-
             with torch.no_grad():
                 generated_ids = self.model.generate(
                     **inputs,
                     max_new_tokens=self.config.max_new_tokens,
                     do_sample=self.config.do_sample,
-                    stopping_criteria=stop,
                 )
 
             # Trim input tokens from output

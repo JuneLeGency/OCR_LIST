@@ -33,7 +33,6 @@ SUPPORTED_MODELS = {
         model_id="Tencent-Hunyuan/HunyuanOCR",
         trust_remote_code=True,
         torch_dtype="bfloat16",
-        attn_implementation="eager",  # flash_attention_2 incompatible with xdrope
         max_new_tokens=8192,
     ),
     "deepseek-ocr": ModelConfig(
