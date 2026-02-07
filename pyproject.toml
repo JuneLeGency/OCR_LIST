@@ -9,27 +9,23 @@ dependencies = [
     "torch>=2.9.0",
     "torchvision>=0.22.0",
     "transformers>=5.0.0",
-
     # Model loading
     "modelscope>=1.0.0",
     "accelerate>=1.12.0",
-
     # Vision processing
     "pillow>=10.0.0",
     "qwen-vl-utils>=0.0.14",
-
     # Utils
     "einops>=0.8.1",
     "addict>=2.4.0",
-    "matplotlib>=3.0.0",  # Required by DeepSeek-OCR
-    "safetensors>=0.4.0",  # Required for HunyuanOCR weight loading
-
+    "matplotlib>=3.0.0", # Required by DeepSeek-OCR
+    "safetensors>=0.4.0", # Required for HunyuanOCR weight loading
     # vLLM server mode (OpenAI-compatible API)
     "openai>=1.0.0",
-
     # HTTP server mode (OpenAI-compatible self-hosted API)
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
+    "gradio>=6.5.1",
 ]
 
 [project.optional-dependencies]

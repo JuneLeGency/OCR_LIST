@@ -28,6 +28,10 @@ Example:
     # vLLM server mode
     engine = OCREngine("glm-ocr-vllm")
     result = engine.ocr("invoice.jpg")
+
+    # HTTP server mode (OpenAI-compatible API)
+    from ocr_engine import run_server
+    run_server(host="0.0.0.0", port=8000, model="rapidocr")
 """
 
 from .base import ModelConfig, OCRResult, InferenceMode, OCRBackend
@@ -39,6 +43,7 @@ from .config import (
     VLLM_CONFIGS,
 )
 from .engine import OCREngine, ocr, batch_ocr
+from .server import run_server
 
 __version__ = "0.2.0"
 
@@ -58,4 +63,6 @@ __all__ = [
     "create_vllm_config",
     "SUPPORTED_MODELS",
     "VLLM_CONFIGS",
+    # Server
+    "run_server",
 ]

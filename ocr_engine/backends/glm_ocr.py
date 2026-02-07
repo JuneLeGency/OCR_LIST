@@ -103,8 +103,7 @@ class GLMOCRBackend(OCRBackend):
 
             input_len = inputs["input_ids"].shape[1]
             output_ids = generated_ids[0][input_len:]
-            # GLM-OCR: keep special tokens for proper formatting
-            text = self.processor.decode(output_ids, skip_special_tokens=False)
+            text = self.processor.decode(output_ids, skip_special_tokens=True)
 
             elapsed_ms = (time.perf_counter() - start_time) * 1000
 
