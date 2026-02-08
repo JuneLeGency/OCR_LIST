@@ -5,9 +5,9 @@ description = "Unified OCR Engine for VLM models (Qwen3-VL, GLM-OCR, HunyuanOCR,
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    # Core - torch 2.9+ for RTX 50 series (sm_120) + prebuilt flash-attn
-    "torch>=2.9.0",
-    "torchvision>=0.22.0",
+    # Core - torch 2.9.x pinned for prebuilt flash-attn wheel compatibility
+    "torch>=2.9.0,<2.10.0",
+    "torchvision",
     "transformers>=5.0.0",
     # Model loading
     "modelscope>=1.0.0",

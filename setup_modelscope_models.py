@@ -29,6 +29,11 @@ MODELS = {
         "huggingface_id": "deepseek-ai/DeepSeek-OCR-2",
         "description": "DeepSeek OCR-2 视觉因果流模型",
     },
+    "dots-ocr": {
+        "modelscope_id": "rednote-hilab/dots.ocr",
+        "huggingface_id": "rednote-hilab/dots.ocr",
+        "description": "RedNote dots.ocr 多语言文档版面解析模型",
+    },
 }
 
 HF_CACHE = Path.home() / ".cache" / "huggingface" / "hub"

@@ -57,22 +57,23 @@ class DotsOCRBackend(OCRBackend):
         if self._loaded:
             return
 
-        import os
         from transformers import AutoModelForCausalLM, AutoProcessor
 
         model_path = self._get_model_path()
-        if not os.path.exists(model_path):
-            model_path = self.config.model_id  # Download from HuggingFace
         dtype = self._get_torch_dtype()
 
         self.processor = AutoProcessor.from_pretrained(
             model_path, trust_remote_code=True,
         )
+        # Fix DotsVLProcessor bug: min_pixels/max_pixels not passed to parent
+        if self.processor.image_processor.min_pixels is None:
+            self.processor.image_processor.min_pixels = 3136
+        if self.processor.image_processor.max_pixels is None:
+            self.processor.image_processor.max_pixels = 11289600
+
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            torch_dtype=dtype,
-            device_map=self.config.device_map,
-            trust_remote_code=True,
+            model_path, torch_dtype=dtype,
+            device_map=self.config.device_map, trust_remote_code=True,
         )
         self.model.eval()
         self._loaded = True
@@ -169,16 +170,22 @@ class DotsOCRBackend(OCRBackend):
         Concatenate all text fields in reading order.
         Falls back to raw output if JSON parsing fails.
         """
-        import json
-        try:
-            elements = json.loads(raw_output)
-            if isinstance(elements, list):
-                parts = []
-                for el in elements:
-                    if isinstance(el, dict) and "text" in el:
-                        parts.append(el["text"])
-                if parts:
-                    return "\n".join(parts)
-        except (json.JSONDecodeError, TypeError):
-            pass
+        import json, re
+        # Try parsing as-is first, then try fixing truncated JSON
+        for text in (raw_output, raw_output.rstrip(", \n") + "]"):
+            try:
+                elements = json.loads(text)
+                if isinstance(elements, list):
+                    parts = [
+                        el["text"] for el in elements
+                        if isinstance(el, dict) and "text" in el
+                    ]
+                    if parts:
+                        return "\n".join(parts)
+            except (json.JSONDecodeError, TypeError):
+                continue
+        # Last resort: extract "text" values via regex
+        parts = re.findall(r'"text"\s*:\s*"((?:[^"\\]|\\.)*)"', raw_output)
+        if parts:
+            return "\n".join(parts)
         return raw_output

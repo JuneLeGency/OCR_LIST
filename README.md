@@ -20,9 +20,7 @@ Unified OCR Engine supporting 8 backends (5 GPU VLM + 3 traditional/lightweight)
 | **hunyuan-ocr** | Tencent | 1.0B | 1.9 GB | 2.9 / >32 GB* | ~67s/img |
 | **deepseek-ocr** | DeepSeek | 3.4B | 6.4 GB | 6.5 / 8.5 GB | ~2.8s/img |
 | **chandra-ocr** | Datalab | 8.9B | 16.5 GB | 16.6 / 18.4 GB | ~23s/img |
-| **dots-ocr** | RedNote | 3.1B | 5.7 GB | 22.5 / >32 GB* | OOM |
-
-\* eager attention causes VRAM spikes on high-resolution images; 32 GB insufficient for some inputs.
+| **dots-ocr** | RedNote | 1.7B | 5.7 GB | 5.7 / 6.7 GB | ~14s/img |
 
 ### Benchmark Accuracy (47 invoices, majority-vote consensus)
 
@@ -115,15 +113,30 @@ uv run python benchmark.py --evaluate-only
 
 ## Model Download
 
-GPU models are cached in `~/.cache/modelscope/hub/models/` or `~/.cache/huggingface/hub/`.
+GPU models use ModelScope cache (`~/.cache/modelscope/hub/models/`):
 
-```python
-from modelscope import snapshot_download
+```bash
+python setup_modelscope_models.py --download  # Download all models
 
-snapshot_download("Qwen/Qwen3-VL-2B-Instruct")
-snapshot_download("ZhipuAI/GLM-OCR")
-snapshot_download("Tencent-Hunyuan/HunyuanOCR")
-snapshot_download("deepseek-ai/DeepSeek-OCR-2")
+# Apply required patches
+python scripts/patch_deepseek_ocr.py
+python scripts/patch_dots_ocr.py
 ```
 
-Chandra and dots.ocr download from HuggingFace automatically on first load.
+## Model Compatibility (transformers 5.x)
+
+This project uses a [custom transformers fork](https://github.com/JuneLeGency/transformers_hy.git)
+(branch `hunyuan-vl-patch`) for HunyuanOCR support. All other models work with this fork.
+
+Models requiring post-download patches (applied to ModelScope cache):
+
+| Model | Patch Script | Key Fixes |
+|-------|-------------|-----------|
+| **deepseek-ocr** | `scripts/patch_deepseek_ocr.py` | inv_freq recompute, LlamaAttention standalone impl, rope_scaling compat, cache API migration |
+| **dots-ocr** | `scripts/patch_dots_ocr.py` | Custom from_pretrained (bypass meta device), GenerationConfig loading, DotsVLProcessor kwargs fix |
+
+Models working out-of-the-box (no patches needed):
+- **qwen3-vl**, **glm-ocr** — native transformers 5.x support
+- **hunyuan-ocr** — fixed in transformers fork
+- **chandra-ocr** — HuggingFace auto-download, standard loading
+- **rapidocr**, **tesseract** — CPU backends, no transformers dependency

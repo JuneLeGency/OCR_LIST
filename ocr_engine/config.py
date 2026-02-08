@@ -62,7 +62,7 @@ SUPPORTED_MODELS = {
         model_id="rednote-hilab/dots.ocr",
         trust_remote_code=True,
         torch_dtype="bfloat16",
-        max_new_tokens=24000,
+        max_new_tokens=8192,
     ),
 }
 
