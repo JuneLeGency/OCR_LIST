@@ -29,10 +29,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "ruff>=0.1.0",
-]
+# Individual backend extras (for selective `pip install ocr-engine[rapidocr]`)
 rapidocr = [
     "rapidocr>=3.4.2",
     "onnxruntime>=1.23.2",
@@ -54,8 +51,25 @@ flash = [
     "flash-attn",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+# All optional OCR backends — included by default via [tool.uv] default-groups
+all-backends = [
+    "rapidocr>=3.4.2",
+    "onnxruntime>=1.23.2",
+    "chandra-ocr>=0.1.0",
+    "pytesseract>=0.3.10",
+]
+
 [project.scripts]
 ocr = "ocr_engine.cli:main"
+
+[tool.uv]
+# Auto-install all backends on `uv sync` (prevents optional deps from being removed)
+default-groups = ["dev", "all-backends"]
 
 [tool.uv.sources]
 # Transformers with HunyuanVL patch (fixes weight corruption during model loading)

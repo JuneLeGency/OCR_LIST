@@ -22,8 +22,9 @@
 - **正式修复**: `pip install nvidia-cudnn-cu12>=9.15` (torch 2.9.x 依赖冲突，需手动安装)
 
 ### 3. pyproject.toml 更新
-- 新增 `[project.optional-dependencies] all` 组，包含所有可选后端依赖
-- 安装方式: `uv pip install -e ".[all]"`
+- 新增 `[dependency-groups]` all-backends 组 + `default-groups` 配置
+- `uv sync` 自动安装所有后端依赖，不再需要手动 `uv pip install -e ".[all]"`
+- 保留 `[project.optional-dependencies]` 用于 pip 按需安装（如 `pip install ocr-engine[rapidocr]`）
 
 ### 4. README.md 更新
 - 模型名称添加超链接
@@ -78,6 +79,22 @@ uv run python benchmark.py
 # 方案 D: 只看已有结果的汇总
 uv run python benchmark.py --evaluate-only
 ```
+
+## 性能分析结论
+
+### chandra-ocr 12s 推理时间（正常）
+- chandra-ocr 是 Qwen3-VL-7B 微调版，**8.77B 参数**（qwen3-vl 的 4 倍）
+- Conv3D 补丁已生效：prefill 仅 127ms (1.1%)，瓶颈在 decode 阶段 (98.9%)
+- Decode 速度 62.6 tok/s，生成 723 tokens → 11.6s，**符合理论预期**
+- bf16 模型大小 17.5 GB，有效带宽利用 1098/1792 GB/s = 61%（所有模型中最高）
+- 加速方案: vLLM 推理 / 量化 (AWQ/GPTQ 4-bit) / 减少输出 token
+
+### 各模型 decode 速度对比 (RTX 5090, 1792 GB/s)
+| 模型 | 参数量 | Decode | 带宽利用率 |
+|------|--------|--------|-----------|
+| glm-ocr | 1.11B | 160 tok/s | 20% |
+| qwen3-vl | 2.13B | 109 tok/s | 26% |
+| chandra-ocr | 8.77B | 62.6 tok/s | 61% |
 
 ## 已知问题
 

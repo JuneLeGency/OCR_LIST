@@ -1039,10 +1039,6 @@ all = [
 chandra = [
     { name = "chandra-ocr" },
 ]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
 flash = [
     { name = "flash-attn" },
 ]
@@ -1052,6 +1048,18 @@ rapidocr = [
 ]
 tesseract = [
     { name = "pytesseract" },
+]
+
+[package.dev-dependencies]
+all-backends = [
+    { name = "chandra-ocr" },
+    { name = "onnxruntime" },
+    { name = "pytesseract" },
+    { name = "rapidocr" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -1072,18 +1080,28 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pytesseract", marker = "extra == 'all'", specifier = ">=0.3.10" },
     { name = "pytesseract", marker = "extra == 'tesseract'", specifier = ">=0.3.10" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "qwen-vl-utils", specifier = ">=0.0.14" },
     { name = "rapidocr", marker = "extra == 'all'", specifier = ">=3.4.2" },
     { name = "rapidocr", marker = "extra == 'rapidocr'", specifier = ">=3.4.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "safetensors", specifier = ">=0.4.0" },
     { name = "torch", specifier = ">=2.9.0,<2.10.0" },
     { name = "torchvision" },
     { name = "transformers", git = "https://github.com/JuneLeGency/transformers_hy.git?branch=hunyuan-vl-patch" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
 ]
-provides-extras = ["dev", "rapidocr", "chandra", "tesseract", "all", "flash"]
+provides-extras = ["rapidocr", "chandra", "tesseract", "all", "flash"]
+
+[package.metadata.requires-dev]
+all-backends = [
+    { name = "chandra-ocr", specifier = ">=0.1.0" },
+    { name = "onnxruntime", specifier = ">=1.23.2" },
+    { name = "pytesseract", specifier = ">=0.3.10" },
+    { name = "rapidocr", specifier = ">=3.4.2" },
+]
+dev = [
+    { name = "pytest", specifier = ">=7.0.0" },
+    { name = "ruff", specifier = ">=0.1.0" },
+]
 
 [[package]]
 name = "omegaconf"
