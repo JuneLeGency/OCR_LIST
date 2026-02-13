@@ -8,19 +8,21 @@ Unified OCR Engine supporting 8 backends (5 GPU VLM + 3 traditional/lightweight)
 
 | Model | Engine | Model Size | Avg Speed |
 |-------|--------|-----------|-----------|
-| **rapidocr** | PaddleOCR v4 (ONNX) | 16 MB | ~1.3s/img |
-| **tesseract** | Google Tesseract 5 | 19 MB | ~0.7s/img |
+| [**rapidocr**][rapidocr] | PaddleOCR v4 (ONNX) | 16 MB | ~1.3s/img |
+| [**tesseract**][tesseract] | Google Tesseract 5 | 19 MB | ~0.7s/img |
 
 ### GPU VLM Models
 
 | Model | Developer | Params | Model Size | VRAM (load/peak) | Avg Speed |
 |-------|-----------|--------|-----------|------------------|-----------|
-| **glm-ocr** | ZhipuAI | 1.3B | 2.5 GB | 2.0 / 3.9 GB | ~2.8s/img |
-| **qwen3-vl** | Alibaba | 2.1B | 4.0 GB | 4.1 / 6.2 GB | ~4.9s/img |
-| **hunyuan-ocr** | Tencent | 1.0B | 1.9 GB | 2.9 / >32 GB* | ~67s/img |
-| **deepseek-ocr** | DeepSeek | 3.4B | 6.4 GB | 6.5 / 8.5 GB | ~2.8s/img |
-| **chandra-ocr** | Datalab | 8.9B | 16.5 GB | 16.6 / 18.4 GB | ~23s/img |
-| **dots-ocr** | RedNote | 1.7B | 5.7 GB | 5.7 / 6.7 GB | ~14s/img |
+| [**glm-ocr**][glm-ocr] | ZhipuAI | 1.3B | 2.5 GB | 2.0 / 3.9 GB | ~2.8s/img |
+| [**qwen3-vl**][qwen3-vl] | Alibaba | 2.1B | 4.0 GB | 4.1 / 6.2 GB | ~4.9s/img |
+| [**hunyuan-ocr**][hunyuan-ocr] | Tencent | 1.0B | 1.9 GB | 2.9 / >32 GB* | ~67s/img |
+| [**deepseek-ocr**][deepseek-ocr] | DeepSeek | 3.4B | 6.4 GB | 6.5 / 8.5 GB | ~2.8s/img |
+| [**chandra-ocr**][chandra-ocr] | Datalab | 8.9B | 16.5 GB | 16.6 / 18.4 GB | ~23s/img |
+| [**dots-ocr**][dots-ocr] | RedNote | 3.0B | 5.7 GB | 5.7 / >32 GB* | ~6s/img |
+
+\* eager attention fallback causes VRAM spikes on high-resolution images (>1080p); 32 GB insufficient for some inputs.
 
 ### Benchmark Accuracy (47 invoices, majority-vote consensus)
 
@@ -28,11 +30,14 @@ Unified OCR Engine supporting 8 backends (5 GPU VLM + 3 traditional/lightweight)
 |-------|----------|-------|----------|-------|
 | glm-ocr | **100.0%** | 47/47 | 0 | 0 |
 | qwen3-vl | **100.0%** | 47/47 | 0 | 0 |
+| dots-ocr | **100.0%** | 18/47 | 0 | 29 |
 | rapidocr | 97.7% | 43/47 | 1 | 3 |
 | hunyuan-ocr | 88.9% | 16/47 | 2 | 29 |
 | deepseek-ocr | 79.2% | 19/47 | 5 | 23 |
+| tesseract | 65.8% | 27/47 | 14 | 6 |
 
-> Tested on RTX 5090 (32 GB). All models BF16 precision. Speed is median per-image time.
+> Tested on RTX 5090 (32 GB). All GPU models BF16 precision. Speed is median per-image time.
+> dots-ocr and hunyuan-ocr errors are OOM on high-res images; deepseek-ocr errors are amount extraction failures.
 
 ## Installation
 
@@ -140,3 +145,34 @@ Models working out-of-the-box (no patches needed):
 - **hunyuan-ocr** — fixed in transformers fork
 - **chandra-ocr** — HuggingFace auto-download, standard loading
 - **rapidocr**, **tesseract** — CPU backends, no transformers dependency
+
+## Model References
+
+| Model | GitHub | HuggingFace | ModelScope |
+|-------|--------|-------------|------------|
+| qwen3-vl | [QwenLM/Qwen3-VL][qwen3-vl-gh] | [Qwen/Qwen3-VL-2B-Instruct][qwen3-vl-hf] | [Qwen/Qwen3-VL-2B-Instruct][qwen3-vl] |
+| glm-ocr | — | — | [ZhipuAI/GLM-OCR][glm-ocr] |
+| hunyuan-ocr | [Tencent-Hunyuan/HunyuanOCR][hunyuan-ocr-gh] | [tencent/HunyuanOCR][hunyuan-ocr-hf] | [Tencent-Hunyuan/HunyuanOCR][hunyuan-ocr] |
+| deepseek-ocr | [deepseek-ai/DeepSeek-OCR-2][deepseek-ocr-gh] | [deepseek-ai/DeepSeek-OCR-2][deepseek-ocr-hf] | [deepseek-ai/DeepSeek-OCR-2][deepseek-ocr] |
+| chandra-ocr | [datalab-to/chandra][chandra-ocr-gh] | [datalab-to/chandra][chandra-ocr] | — |
+| dots-ocr | [rednote-hilab/dots.ocr1.5][dots-ocr-gh] | [rednote-hilab/dots.ocr][dots-ocr] | — |
+| rapidocr | [RapidAI/RapidOCR][rapidocr] | — | — |
+| tesseract | [tesseract-ocr/tesseract][tesseract] | — | — |
+
+<!-- Reference links -->
+[qwen3-vl]: https://modelscope.cn/models/Qwen/Qwen3-VL-2B-Instruct
+[qwen3-vl-hf]: https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct
+[qwen3-vl-gh]: https://github.com/QwenLM/Qwen3-VL
+[glm-ocr]: https://modelscope.cn/models/ZhipuAI/GLM-OCR
+[hunyuan-ocr]: https://modelscope.cn/models/Tencent-Hunyuan/HunyuanOCR
+[hunyuan-ocr-hf]: https://huggingface.co/tencent/HunyuanOCR
+[hunyuan-ocr-gh]: https://github.com/Tencent-Hunyuan/HunyuanOCR
+[deepseek-ocr]: https://modelscope.cn/models/deepseek-ai/DeepSeek-OCR-2
+[deepseek-ocr-hf]: https://huggingface.co/deepseek-ai/DeepSeek-OCR-2
+[deepseek-ocr-gh]: https://github.com/deepseek-ai/DeepSeek-OCR-2
+[chandra-ocr]: https://huggingface.co/datalab-to/chandra
+[chandra-ocr-gh]: https://github.com/datalab-to/chandra
+[dots-ocr]: https://huggingface.co/rednote-hilab/dots.ocr
+[dots-ocr-gh]: https://github.com/rednote-hilab/dots.ocr1.5
+[rapidocr]: https://github.com/RapidAI/RapidOCR
+[tesseract]: https://github.com/tesseract-ocr/tesseract

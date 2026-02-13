@@ -50,6 +50,10 @@ class Qwen3VLBackend(OCRBackend):
             trust_remote_code=self.config.trust_remote_code,
         )
         self.model.eval()
+
+        from ..compat import patch_conv3d_for_blackwell
+        patch_conv3d_for_blackwell(self.model)
+
         self._loaded = True
 
     def unload(self) -> None:

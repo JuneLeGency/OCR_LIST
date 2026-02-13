@@ -1,0 +1,100 @@
+# OCR Engine — 项目上下文
+
+## 项目概述
+
+统一 OCR 引擎，支持 8 个后端（5 GPU VLM + 3 传统/轻量）。
+用于发票图片金额提取的 benchmark 对比测试。
+
+## 已提交的改动
+
+### 1. HunyuanOCR repetition_penalty 修复
+- **文件**: `ocr_engine/backends/hunyuan_ocr.py:136`
+- **改动**: `model.generate()` 添加 `repetition_penalty=1.1`
+- **原因**: hunyuan-ocr 在高分辨率图片上进入重复生成循环，KV cache 膨胀导致 OOM
+
+### 2. cuDNN Conv3D 半精度性能 workaround
+- **文件**: `ocr_engine/compat.py` (新增), 3 个 backend 文件引用
+- **问题**: cuDNN < 9.15 的 Conv3D 在 bf16/fp16 下有 ~8000x 性能退化
+  - 影响所有使用 Qwen3-VL 架构 Conv3D patch_embed 的模型
+  - 根因: cuDNN 卷积规划器选择了错误的算法 (PyTorch#168167)
+- **修复**: 检测到 cuDNN < 9.15 时，将 patch_embed 的 Conv3D 转为 fp32 运算
+- **效果**: qwen3-vl 10.4s→2.4s (4.3x), glm-ocr 11.9s→1.6s (7.4x), chandra-ocr 22.7s→12.5s (1.8x)
+- **正式修复**: `pip install nvidia-cudnn-cu12>=9.15` (torch 2.9.x 依赖冲突，需手动安装)
+
+### 3. pyproject.toml 更新
+- 新增 `[project.optional-dependencies] all` 组，包含所有可选后端依赖
+- 安装方式: `uv pip install -e ".[all]"`
+
+### 4. README.md 更新
+- 模型名称添加超链接
+- 新增 Model References 表格
+- 更新 dots-ocr 参数（1.7B → 3.0B）和 benchmark 数据
+
+## 速度测试结果 (Feb 13, 2026)
+
+测试图片: `inputs/25337000000272477597.jpg` (¥32.14), GPU: RTX 5090
+
+| 模型 | 加载 | 推理 | VRAM 峰值 | 金额 | 正确 |
+|------|------|------|-----------|------|------|
+| tesseract | 0.3s | 0.7s | 1,569 MiB | ¥0.96 | ✗ |
+| rapidocr | 0.5s | 1.2s | 1,569 MiB | ¥32.14 | ✓ |
+| glm-ocr | 0.7s | 1.7s | 3,960 MiB | ¥32.14 | ✓ |
+| qwen3-vl | 3.0s | 2.4s | 5,813 MiB | ¥32.14 | ✓ |
+| hunyuan-ocr | 19.2s | 2.5s | 5,836 MiB | ¥32.14 | ✓ |
+| deepseek-ocr | 1.9s | 2.8s | 10,248 MiB | ¥32.14 | ✓ |
+| dots-ocr | 2.8s | 7.6s | 15,609 MiB | ¥32.14 | ✓ |
+| chandra-ocr | 22.0s | 12.5s | 18,752 MiB | ¥32.14 | ✓ |
+
+## Benchmark 进展
+
+### 已完成（本次 run，Feb 8）
+| 模型 | 状态 | 结果文件时间 |
+|------|------|-------------|
+| qwen3-vl | 47/47 全部 OK | Feb 8 19:10 (新) |
+
+### 待重跑（旧结果，各修复前的数据）
+| 模型 | 旧结果时间 | 备注 |
+|------|-----------|------|
+| glm-ocr | Feb 7 00:04 | 需重跑（Conv3D 修复后速度提升 7x） |
+| hunyuan-ocr | Feb 7 00:24 | **必须重跑** — 修复前的数据，29/47 OOM |
+| deepseek-ocr | Feb 7 00:31 | 可选重跑 |
+| rapidocr | Feb 6 23:50 | 可选重跑 |
+| chandra-ocr | — | 无结果文件，从未跑过 |
+| tesseract | Feb 8 18:09 | 较新，可跳过 |
+| dots-ocr | Feb 8 18:11 | 较新，可跳过 |
+
+## 下次 Benchmark 命令
+
+```bash
+# 方案 A: 只重跑关键模型（hunyuan-ocr 验证修复 + 补 chandra-ocr）
+uv run python benchmark.py --models hunyuan-ocr chandra-ocr
+
+# 方案 B: 全量重跑（跳过今天已跑的）
+uv run python benchmark.py --skip-existing
+
+# 方案 C: 全量重跑（覆盖所有旧结果）
+uv run python benchmark.py
+
+# 方案 D: 只看已有结果的汇总
+uv run python benchmark.py --evaluate-only
+```
+
+## 已知问题
+
+### cuDNN Conv3D 半精度 bug（已 workaround）
+- **影响**: PyTorch 2.9.x + cuDNN < 9.15，所有 GPU 架构
+- **症状**: Conv3D bf16/fp16 比 fp32 慢 ~8000 倍，同时内存膨胀 ~3x
+- **受影响模型**: qwen3-vl, glm-ocr, chandra-ocr（均使用 Qwen3-VL 架构的 Conv3D patch_embed）
+- **当前 workaround**: `ocr_engine/compat.py` 自动检测并将 Conv3D 转为 fp32
+- **正式修复**: `pip install nvidia-cudnn-cu12>=9.15`（torch 2.9.x 依赖会被 `uv sync` 覆盖回旧版）
+- **参考**:
+  - https://github.com/pytorch/pytorch/issues/168167
+  - https://github.com/pytorch/pytorch/issues/166643
+  - https://forums.developer.nvidia.com/t/355210
+
+## 技术栈
+
+- Python 3.12, uv 包管理
+- PyTorch 2.9, transformers 5.x (custom fork for HunyuanOCR)
+- GPU: RTX 5090 (32 GB), cuDNN 9.10 (with fp32 workaround)
+- 模型缓存: `~/.cache/modelscope/hub/models/`

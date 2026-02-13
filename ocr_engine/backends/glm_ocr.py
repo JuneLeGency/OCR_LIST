@@ -43,6 +43,16 @@ class GLMOCRBackend(OCRBackend):
         dtype = self._get_torch_dtype()
 
         self.processor = AutoProcessor.from_pretrained(model_path)
+        # The default longest_edge (9633792 ≈ 9.6M pixels) means large images
+        # pass through at full resolution, producing ~24k visual tokens for a
+        # 3000×2000 image vs ~4k for a 1080×740 image (6× slower).
+        # Cap at 4M pixels to keep large-image patches around ~10k, reducing
+        # inference from ~64s to ~25s while preserving OCR quality.
+        ip = self.processor.image_processor
+        ip.size = {
+            "shortest_edge": ip.size["shortest_edge"],
+            "longest_edge": min(ip.size["longest_edge"], 4_000_000),
+        }
         self.model = AutoModelForImageTextToText.from_pretrained(
             model_path,
             torch_dtype=dtype,
@@ -50,6 +60,10 @@ class GLMOCRBackend(OCRBackend):
             trust_remote_code=self.config.trust_remote_code,
         )
         self.model.eval()
+
+        from ..compat import patch_conv3d_for_blackwell
+        patch_conv3d_for_blackwell(self.model)
+
         self._loaded = True
 
     def unload(self) -> None:

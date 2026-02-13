@@ -1030,6 +1030,12 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "chandra-ocr" },
+    { name = "onnxruntime" },
+    { name = "pytesseract" },
+    { name = "rapidocr" },
+]
 chandra = [
     { name = "chandra-ocr" },
 ]
@@ -1052,6 +1058,7 @@ tesseract = [
 requires-dist = [
     { name = "accelerate", specifier = ">=1.12.0" },
     { name = "addict", specifier = ">=2.4.0" },
+    { name = "chandra-ocr", marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "chandra-ocr", marker = "extra == 'chandra'", specifier = ">=0.1.0" },
     { name = "einops", specifier = ">=0.8.1" },
     { name = "fastapi", specifier = ">=0.115.0" },
@@ -1059,12 +1066,15 @@ requires-dist = [
     { name = "gradio", specifier = ">=6.5.1" },
     { name = "matplotlib", specifier = ">=3.0.0" },
     { name = "modelscope", specifier = ">=1.0.0" },
+    { name = "onnxruntime", marker = "extra == 'all'", specifier = ">=1.23.2" },
     { name = "onnxruntime", marker = "extra == 'rapidocr'", specifier = ">=1.23.2" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pytesseract", marker = "extra == 'all'", specifier = ">=0.3.10" },
     { name = "pytesseract", marker = "extra == 'tesseract'", specifier = ">=0.3.10" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "qwen-vl-utils", specifier = ">=0.0.14" },
+    { name = "rapidocr", marker = "extra == 'all'", specifier = ">=3.4.2" },
     { name = "rapidocr", marker = "extra == 'rapidocr'", specifier = ">=3.4.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "safetensors", specifier = ">=0.4.0" },
@@ -1073,7 +1083,7 @@ requires-dist = [
     { name = "transformers", git = "https://github.com/JuneLeGency/transformers_hy.git?branch=hunyuan-vl-patch" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
 ]
-provides-extras = ["dev", "rapidocr", "chandra", "tesseract", "flash"]
+provides-extras = ["dev", "rapidocr", "chandra", "tesseract", "all", "flash"]
 
 [[package]]
 name = "omegaconf"

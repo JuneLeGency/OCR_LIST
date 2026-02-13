@@ -43,6 +43,12 @@ chandra = [
 tesseract = [
     "pytesseract>=0.3.10",
 ]
+all = [
+    "rapidocr>=3.4.2",
+    "onnxruntime>=1.23.2",
+    "chandra-ocr>=0.1.0",
+    "pytesseract>=0.3.10",
+]
 # Flash attention for better performance (requires matching torch version)
 flash = [
     "flash-attn",

@@ -133,6 +133,7 @@ class HunyuanOCRBackend(OCRBackend):
                     **inputs,
                     max_new_tokens=self.config.max_new_tokens,
                     do_sample=self.config.do_sample,
+                    repetition_penalty=1.1,
                 )
 
             # Trim input tokens from output

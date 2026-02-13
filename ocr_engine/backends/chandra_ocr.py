@@ -38,6 +38,11 @@ class ChandraOCRBackend(OCRBackend):
         from chandra.model import InferenceManager
 
         self._manager = InferenceManager(method="hf")
+
+        from ..compat import patch_conv3d_for_blackwell
+        if self._manager.model is not None:
+            patch_conv3d_for_blackwell(self._manager.model)
+
         self._loaded = True
 
     def unload(self) -> None:
