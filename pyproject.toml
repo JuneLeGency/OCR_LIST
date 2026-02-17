@@ -70,6 +70,9 @@ ocr = "ocr_engine.cli:main"
 [tool.uv]
 # Auto-install all backends on `uv sync` (prevents optional deps from being removed)
 default-groups = ["dev", "all-backends"]
+# Force cuDNN >= 9.15 to fix Conv3D half-precision ~8000x perf regression (PyTorch#168167)
+# torch 2.9.x pins an older version, but 9.15+ is binary-compatible
+override-dependencies = ["nvidia-cudnn-cu12>=9.15"]
 
 [tool.uv.sources]
 # Transformers with HunyuanVL patch (fixes weight corruption during model loading)
