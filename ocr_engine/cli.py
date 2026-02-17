@@ -186,6 +186,8 @@ Examples:
   ocr -o output.json --json *.jpg      # JSON output to file
   ocr serve                            # Start API server
   ocr serve --port 9090 --model rapidocr
+  ocr web                              # Start Gradio web UI for model comparison
+  ocr web --port 7860                  # Gradio UI on custom port
             """,
         )
         _add_ocr_arguments(parser)
