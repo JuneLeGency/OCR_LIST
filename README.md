@@ -174,5 +174,11 @@ Models working out-of-the-box (no patches needed):
 [chandra-ocr-gh]: https://github.com/datalab-to/chandra
 [dots-ocr]: https://huggingface.co/rednote-hilab/dots.ocr
 [dots-ocr-gh]: https://github.com/rednote-hilab/dots.ocr1.5
+
+
+
+
+TODO
+https://huggingface.co/spaces/lightonai/LightOnOCR-2-1B-Demo
 [rapidocr]: https://github.com/RapidAI/RapidOCR
 [tesseract]: https://github.com/tesseract-ocr/tesseract
