@@ -2001,8 +2001,8 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "5.0.1.dev0"
-source = { git = "https://github.com/JuneLeGency/transformers_hy.git?branch=hunyuan-vl-patch#58f5eb9ebb2101e177abfc089a7ee132be3ccdfe" }
+version = "5.3.0.dev0"
+source = { git = "https://github.com/JuneLeGency/transformers_hy.git?branch=hunyuan-vl-patch#8e92db149e75b915e35a18655ff47f26e6759197" }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "numpy" },
@@ -2012,7 +2012,7 @@ dependencies = [
     { name = "safetensors" },
     { name = "tokenizers" },
     { name = "tqdm" },
-    { name = "typer-slim" },
+    { name = "typer" },
 ]
 
 [[package]]
