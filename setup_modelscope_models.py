@@ -34,6 +34,11 @@ MODELS = {
         "huggingface_id": "rednote-hilab/dots.ocr",
         "description": "RedNote dots.ocr 多语言文档版面解析模型",
     },
+    "firered-ocr": {
+        "modelscope_id": "FireRedTeam/FireRed-OCR",
+        "huggingface_id": "FireRedTeam/FireRed-OCR",
+        "description": "小红书 FireRed-OCR 结构化文档解析模型",
+    },
 }
 
 HF_CACHE = Path.home() / ".cache" / "huggingface" / "hub"

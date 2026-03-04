@@ -47,6 +47,8 @@ from .rapidocr import RapidOCRBackend
 from .chandra_ocr import ChandraOCRBackend
 from .tesseract_ocr import TesseractOCRBackend
 from .dots_ocr import DotsOCRBackend
+from .lighton_ocr import LightOnOCRBackend
+from .firered_ocr import FireRedOCRBackend
 
 __all__ = [
     "register_backend",
@@ -62,4 +64,6 @@ __all__ = [
     "ChandraOCRBackend",
     "TesseractOCRBackend",
     "DotsOCRBackend",
+    "LightOnOCRBackend",
+    "FireRedOCRBackend",
 ]

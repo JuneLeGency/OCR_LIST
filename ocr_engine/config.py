@@ -64,6 +64,20 @@ SUPPORTED_MODELS = {
         torch_dtype="bfloat16",
         max_new_tokens=8192,
     ),
+    "lighton-ocr": ModelConfig(
+        name="LightOnOCR-2-1B",
+        model_id="lightonai/LightOnOCR-2-1B",
+        trust_remote_code=False,
+        torch_dtype="bfloat16",
+        max_new_tokens=4096,
+    ),
+    "firered-ocr": ModelConfig(
+        name="FireRed-OCR",
+        model_id="FireRedTeam/FireRed-OCR",
+        trust_remote_code=False,
+        torch_dtype="bfloat16",
+        max_new_tokens=8192,
+    ),
 }
 
 # vLLM server configurations (examples)

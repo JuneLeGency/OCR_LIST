@@ -1,6 +1,6 @@
 # OCR Engine
 
-Unified OCR Engine supporting 8 backends (5 GPU VLM + 3 traditional/lightweight).
+Unified OCR Engine supporting 10 backends (7 GPU VLM + 3 traditional/lightweight).
 
 ## Supported Models
 
@@ -21,6 +21,8 @@ Unified OCR Engine supporting 8 backends (5 GPU VLM + 3 traditional/lightweight)
 | [**deepseek-ocr**][deepseek-ocr] | DeepSeek | 3.4B | 6.4 GB | 6.5 / 8.5 GB | ~2.8s/img |
 | [**chandra-ocr**][chandra-ocr] | Datalab | 8.9B | 16.5 GB | 16.6 / 18.4 GB | ~23s/img |
 | [**dots-ocr**][dots-ocr] | RedNote | 3.0B | 5.7 GB | 5.7 / >32 GB* | ~6s/img |
+| [**lighton-ocr**][lighton-ocr] | LightOn | 1.0B | 2.0 GB | — | ~8s/img |
+| [**firered-ocr**][firered-ocr] | Xiaohongshu | 2.1B | 3.7 GB | — | ~11s/img |
 
 \* eager attention fallback causes VRAM spikes on high-resolution images (>1080p); 32 GB insufficient for some inputs.
 
@@ -30,13 +32,17 @@ Unified OCR Engine supporting 8 backends (5 GPU VLM + 3 traditional/lightweight)
 |-------|----------|-------|----------|-------|
 | glm-ocr | **100.0%** | 47/47 | 0 | 0 |
 | qwen3-vl | **100.0%** | 47/47 | 0 | 0 |
+| hunyuan-ocr | **100.0%** | 44/47 | 0 | 3 |
+| lighton-ocr | **100.0%** | 32/47 | 0 | 15 |
 | dots-ocr | **100.0%** | 18/47 | 0 | 29 |
+| firered-ocr | 97.5% | 39/47 | 1 | 7 |
 | rapidocr | 97.7% | 43/47 | 1 | 3 |
-| hunyuan-ocr | 88.9% | 16/47 | 2 | 29 |
 | deepseek-ocr | 79.2% | 19/47 | 5 | 23 |
 | tesseract | 65.8% | 27/47 | 14 | 6 |
 
 > Tested on RTX 5090 (32 GB). All GPU models BF16 precision. Speed is median per-image time.
+> lighton-ocr errors are amount extraction failures on high-res images (max_new_tokens exhausted).
+> firered-ocr errors are amount extraction failures (HTML output with excessive &amp;nbsp; padding exhausts token budget before reaching amount fields).
 > dots-ocr and hunyuan-ocr errors are OOM on high-res images; deepseek-ocr errors are amount extraction failures.
 
 ## Installation
@@ -144,6 +150,8 @@ Models working out-of-the-box (no patches needed):
 - **qwen3-vl**, **glm-ocr** — native transformers 5.x support
 - **hunyuan-ocr** — fixed in transformers fork
 - **chandra-ocr** — HuggingFace auto-download, standard loading
+- **lighton-ocr** — native transformers 5.x support, HuggingFace auto-download
+- **firered-ocr** — Qwen3-VL fine-tune, same loading as qwen3-vl
 - **rapidocr**, **tesseract** — CPU backends, no transformers dependency
 
 ## Model References
@@ -156,6 +164,8 @@ Models working out-of-the-box (no patches needed):
 | deepseek-ocr | [deepseek-ai/DeepSeek-OCR-2][deepseek-ocr-gh] | [deepseek-ai/DeepSeek-OCR-2][deepseek-ocr-hf] | [deepseek-ai/DeepSeek-OCR-2][deepseek-ocr] |
 | chandra-ocr | [datalab-to/chandra][chandra-ocr-gh] | [datalab-to/chandra][chandra-ocr] | — |
 | dots-ocr | [rednote-hilab/dots.ocr1.5][dots-ocr-gh] | [rednote-hilab/dots.ocr][dots-ocr] | — |
+| lighton-ocr | — | [lightonai/LightOnOCR-2-1B][lighton-ocr] | — |
+| firered-ocr | [FireRedTeam/FireRed-OCR][firered-ocr-gh] | [FireRedTeam/FireRed-OCR][firered-ocr-hf] | [FireRedTeam/FireRed-OCR][firered-ocr] |
 | rapidocr | [RapidAI/RapidOCR][rapidocr] | — | — |
 | tesseract | [tesseract-ocr/tesseract][tesseract] | — | — |
 
@@ -174,12 +184,9 @@ Models working out-of-the-box (no patches needed):
 [chandra-ocr-gh]: https://github.com/datalab-to/chandra
 [dots-ocr]: https://huggingface.co/rednote-hilab/dots.ocr
 [dots-ocr-gh]: https://github.com/rednote-hilab/dots.ocr1.5
+[lighton-ocr]: https://huggingface.co/lightonai/LightOnOCR-2-1B
+[firered-ocr]: https://modelscope.cn/models/FireRedTeam/FireRed-OCR
+[firered-ocr-hf]: https://huggingface.co/FireRedTeam/FireRed-OCR
+[firered-ocr-gh]: https://github.com/FireRedTeam/FireRed-OCR
 [rapidocr]: https://github.com/RapidAI/RapidOCR
-
-
-
-TODO
-https://huggingface.co/spaces/lightonai/LightOnOCR-2-1B-Demo
-
-FireRed-OCR
 [tesseract]: https://github.com/tesseract-ocr/tesseract

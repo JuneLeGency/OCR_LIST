@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-统一 OCR 引擎，支持 8 个后端（5 GPU VLM + 3 传统/轻量）。
+统一 OCR 引擎，支持 10 个后端（7 GPU VLM + 3 传统/轻量）。
 用于发票图片金额提取的 benchmark 对比测试。
 
 ## 已提交的改动
@@ -45,40 +45,29 @@
 | deepseek-ocr | 1.9s | 2.8s | 10,248 MiB | ¥32.14 | ✓ |
 | dots-ocr | 2.8s | 7.6s | 15,609 MiB | ¥32.14 | ✓ |
 | chandra-ocr | 22.0s | 12.5s | 18,752 MiB | ¥32.14 | ✓ |
+| lighton-ocr | 0.5s | 3.3s | ~2,100 MiB | ¥32.14 | ✓ |
+| firered-ocr | 0.6s | 5.1s | ~4,100 MiB | N/A | ✗* |
 
-## Benchmark 进展
+## Benchmark 进展 (Mar 4, 2026)
 
-### 已完成（本次 run，Feb 8）
-| 模型 | 状态 | 结果文件时间 |
-|------|------|-------------|
-| qwen3-vl | 47/47 全部 OK | Feb 8 19:10 (新) |
+### Benchmark 准确率 (47 invoices, majority-vote consensus)
+| 模型 | 准确率 | Match | Mismatch | Error |
+|------|--------|-------|----------|-------|
+| glm-ocr | **100.0%** | 47/47 | 0 | 0 |
+| qwen3-vl | **100.0%** | 47/47 | 0 | 0 |
+| hunyuan-ocr | **100.0%** | 44/47 | 0 | 3 |
+| lighton-ocr | **100.0%** | 32/47 | 0 | 15 |
+| dots-ocr | **100.0%** | 18/47 | 0 | 29 |
+| firered-ocr | 97.5% | 39/47 | 1 | 7 |
+| rapidocr | 97.7% | 43/47 | 1 | 3 |
+| deepseek-ocr | 79.2% | 19/47 | 5 | 23 |
+| tesseract | 65.8% | 27/47 | 14 | 6 |
 
-### 待重跑（旧结果，各修复前的数据）
-| 模型 | 旧结果时间 | 备注 |
-|------|-----------|------|
-| glm-ocr | Feb 7 00:04 | 需重跑（Conv3D 修复后速度提升 7x） |
-| hunyuan-ocr | Feb 7 00:24 | **必须重跑** — 修复前的数据，29/47 OOM |
-| deepseek-ocr | Feb 7 00:31 | 可选重跑 |
-| rapidocr | Feb 6 23:50 | 可选重跑 |
-| chandra-ocr | — | 无结果文件，从未跑过 |
-| tesseract | Feb 8 18:09 | 较新，可跳过 |
-| dots-ocr | Feb 8 18:11 | 较新，可跳过 |
-
-## 下次 Benchmark 命令
-
-```bash
-# 方案 A: 只重跑关键模型（hunyuan-ocr 验证修复 + 补 chandra-ocr）
-uv run python benchmark.py --models hunyuan-ocr chandra-ocr
-
-# 方案 B: 全量重跑（跳过今天已跑的）
-uv run python benchmark.py --skip-existing
-
-# 方案 C: 全量重跑（覆盖所有旧结果）
-uv run python benchmark.py
-
-# 方案 D: 只看已有结果的汇总
-uv run python benchmark.py --evaluate-only
-```
+### 新增模型观察
+- **lighton-ocr**: 100% 准确率（无 mismatch），15 个 error 是高分辨率发票 max_new_tokens 耗尽导致金额区域被截断。中位推理 ~8s/img
+- **firered-ocr**: 97.5% 准确率，1 个 mismatch（¥14.8 vs consensus ¥14.37），7 个 error 是 HTML 输出含大量 `&nbsp;` 填充消耗 token，金额字段未生成。中位推理 ~11s/img
+- **firered-ocr** 是 Qwen3-VL-2B 微调，默认 prompt 面向文档→Markdown 转换，不适合金额提取场景
+- **lighton-ocr** 的 Pixtral ViT 编码器不受 cuDNN Conv3D bug 影响
 
 ## 性能分析结论
 
@@ -101,7 +90,7 @@ uv run python benchmark.py --evaluate-only
 ### cuDNN Conv3D 半精度 bug（已 workaround）
 - **影响**: PyTorch 2.9.x + cuDNN < 9.15，所有 GPU 架构
 - **症状**: Conv3D bf16/fp16 比 fp32 慢 ~8000 倍，同时内存膨胀 ~3x
-- **受影响模型**: qwen3-vl, glm-ocr, chandra-ocr（均使用 Qwen3-VL 架构的 Conv3D patch_embed）
+- **受影响模型**: qwen3-vl, glm-ocr, chandra-ocr, firered-ocr（均使用 Qwen3-VL 架构的 Conv3D patch_embed）
 - **当前 workaround**: `ocr_engine/compat.py` 自动检测并将 Conv3D 转为 fp32
 - **正式修复**: `pip install nvidia-cudnn-cu12>=9.15`（torch 2.9.x 依赖会被 `uv sync` 覆盖回旧版）
 - **参考**:
