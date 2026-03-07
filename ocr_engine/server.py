@@ -28,6 +28,21 @@ from pydantic import BaseModel
 from .config import SUPPORTED_MODELS
 from .engine import OCREngine
 
+# Estimated VRAM usage per GPU model (MB).  Used as a safety budget check
+# before loading.  Values are conservative upper bounds measured empirically.
+_MODEL_VRAM_MB: dict[str, int] = {
+    "glm-ocr":      2600,
+    "hunyuan-ocr":  2200,
+    "lighton-ocr":  2200,
+    "qwen3-vl":     4500,
+    "firered-ocr":  4500,
+    "deepseek-ocr": 7000,
+    "dots-ocr":     6500,
+    "chandra-ocr": 18000,
+}
+# Minimum free VRAM (MB) to keep after loading, for inference workspace
+_VRAM_RESERVE_MB = 300
+
 logger = logging.getLogger("ocr_engine.server")
 
 # ---------------------------------------------------------------------------
@@ -147,10 +162,12 @@ def extract_image_and_prompt(
 
 
 class ModelManager:
-    """Manage OCR engine instances with GPU exclusion.
+    """Manage OCR engine instances with GPU exclusion and VRAM safety.
 
     * At most **one** GPU model is loaded at a time.
-    * RapidOCR (CPU-only) can always coexist with a GPU model.
+    * RapidOCR / Tesseract (CPU-only) can always coexist.
+    * VRAM budget check before loading — refuses if insufficient.
+    * Enhanced unload: gc.collect() + empty_cache() + ipc_collect().
     * All load/unload operations are serialised via an ``asyncio.Lock``.
     """
 
@@ -158,6 +175,28 @@ class ModelManager:
         self._engines: dict[str, OCREngine] = {}
         self._gpu_model: Optional[str] = None
         self._lock = asyncio.Lock()
+
+    @staticmethod
+    def _get_free_vram_mb() -> int:
+        """Get free GPU VRAM in MB via torch.cuda."""
+        try:
+            import torch
+            free, _ = torch.cuda.mem_get_info(0)
+            return int(free / 1024 / 1024)
+        except Exception:
+            return 0
+
+    @staticmethod
+    def _thorough_gpu_cleanup() -> None:
+        """Force-release GPU memory as thoroughly as possible."""
+        import gc
+        gc.collect()
+        try:
+            import torch
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+        except Exception:
+            pass
 
     async def get_engine(self, model_name: str) -> OCREngine:
         """Return a ready-to-use ``OCREngine``, loading on demand."""
@@ -178,12 +217,31 @@ class ModelManager:
             # unload the old one first.
             if is_gpu and self._gpu_model and self._gpu_model != model_name:
                 old = self._engines.pop(self._gpu_model)
-                logger.info("Unloading GPU model %s", self._gpu_model)
+                logger.info("Unloading GPU model %s …", self._gpu_model)
                 await asyncio.to_thread(old.unload)
                 self._gpu_model = None
+                # Thorough cleanup after unload
+                await asyncio.to_thread(self._thorough_gpu_cleanup)
+                free_after = self._get_free_vram_mb()
+                logger.info("GPU cleanup done. Free VRAM: %d MB", free_after)
+
+            # VRAM budget check for GPU models
+            if is_gpu:
+                needed_mb = _MODEL_VRAM_MB.get(model_name, 4000)
+                free_mb = self._get_free_vram_mb()
+                if free_mb < needed_mb + _VRAM_RESERVE_MB:
+                    raise ValueError(
+                        f"Insufficient VRAM for {model_name}: "
+                        f"need ~{needed_mb}+{_VRAM_RESERVE_MB} MB, "
+                        f"only {free_mb} MB free. "
+                        f"Try a smaller model (glm-ocr, hunyuan-ocr, lighton-ocr) "
+                        f"or free GPU memory."
+                    )
 
             # Load the new model (potentially slow – run in a thread)
-            logger.info("Loading model %s …", model_name)
+            logger.info("Loading model %s (est. %d MB) …",
+                        model_name,
+                        _MODEL_VRAM_MB.get(model_name, 0))
             engine = OCREngine(model_name=model_name)
             await asyncio.to_thread(engine.load)
             self._engines[model_name] = engine
@@ -191,7 +249,8 @@ class ModelManager:
             if is_gpu:
                 self._gpu_model = model_name
 
-            logger.info("Model %s ready", model_name)
+            free_now = self._get_free_vram_mb()
+            logger.info("Model %s ready. Free VRAM: %d MB", model_name, free_now)
             return engine
 
     @property
@@ -261,10 +320,12 @@ async def list_models():
 
 @app.get("/health")
 async def health():
+    free_mb = ModelManager._get_free_vram_mb()
     return {
         "status": "ok",
         "loaded_models": manager.loaded_models,
         "gpu_model": manager.gpu_model,
+        "free_vram_mb": free_mb,
     }
 
 
