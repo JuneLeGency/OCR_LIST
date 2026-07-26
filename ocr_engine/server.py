@@ -39,6 +39,9 @@ _MODEL_VRAM_MB: dict[str, int] = {
     "deepseek-ocr": 7000,
     "dots-ocr":     6500,
     "chandra-ocr": 18000,
+    # Charged to the sidecar process, listed for reference only — see
+    # _REMOTE_MODELS, which exempts it from the local budget check.
+    "unlimited-ocr": 7000,
 }
 # Minimum free VRAM (MB) to keep after loading, for inference workspace
 _VRAM_RESERVE_MB = 300
@@ -49,6 +52,15 @@ logger = logging.getLogger("ocr_engine.server")
 # Models that only use CPU (can coexist with any GPU model)
 # ---------------------------------------------------------------------------
 _CPU_ONLY_MODELS = {"rapidocr"}
+
+# ---------------------------------------------------------------------------
+# Models served by a sidecar process over HTTP.  Their weights never enter this
+# process, so the single-GPU-model exclusion and the local VRAM budget check
+# must not apply to them — otherwise loading one would needlessly evict the
+# resident GPU model.  The sidecar owns its own VRAM lifecycle (lazy load +
+# POST /unload).
+# ---------------------------------------------------------------------------
+_REMOTE_MODELS = {"unlimited-ocr"}
 
 # All model names the server recognises
 _ALL_MODELS = set(SUPPORTED_MODELS.keys())
@@ -211,7 +223,9 @@ class ModelManager:
             if model_name in self._engines:
                 return self._engines[model_name]
 
-            is_gpu = model_name not in _CPU_ONLY_MODELS
+            # Remote (sidecar) models hold no VRAM here — treat them like CPU
+            # models for exclusion/budget purposes.
+            is_gpu = model_name not in _CPU_ONLY_MODELS and model_name not in _REMOTE_MODELS
 
             # If requesting a GPU model and a *different* GPU model is loaded,
             # unload the old one first.

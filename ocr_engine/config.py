@@ -78,6 +78,16 @@ SUPPORTED_MODELS = {
         torch_dtype="bfloat16",
         max_new_tokens=8192,
     ),
+    # Served by the sidecar at ~/Dev/unlimited-ocr (its own transformers 4.57.x
+    # venv), NOT loaded in this process — see backends/unlimited_ocr.py.
+    "unlimited-ocr": ModelConfig(
+        name="Unlimited-OCR",
+        model_id="PaddlePaddle/Unlimited-OCR",
+        trust_remote_code=True,
+        torch_dtype="bfloat16",
+        max_new_tokens=32768,
+        vllm_base_url="http://127.0.0.1:9085",
+    ),
 }
 
 # vLLM server configurations (examples)

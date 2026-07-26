@@ -49,6 +49,7 @@ from .tesseract_ocr import TesseractOCRBackend
 from .dots_ocr import DotsOCRBackend
 from .lighton_ocr import LightOnOCRBackend
 from .firered_ocr import FireRedOCRBackend
+from .unlimited_ocr import UnlimitedOCRBackend
 
 __all__ = [
     "register_backend",
@@ -66,4 +67,5 @@ __all__ = [
     "DotsOCRBackend",
     "LightOnOCRBackend",
     "FireRedOCRBackend",
+    "UnlimitedOCRBackend",
 ]
